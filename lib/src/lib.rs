@@ -41,7 +41,7 @@ pub fn dijkstra<T>(from: GraphNode<T>, to: GraphNode<T>) -> Option<Vec<GraphEdge
     let mut to_visit = BinaryHeap::<HeapNode<T>>::new();
     let mut visited = HashMap::<GraphNode<T>, (usize, Vec<GraphEdge<T>>)>::new();
 
-    visited.insert(from, (0, vec![]));
+    visited.insert(from.clone(), (0, vec![]));
     for edge in from.adjacent_nodes() {
         to_visit.push(HeapNode {
             node: edge.to,

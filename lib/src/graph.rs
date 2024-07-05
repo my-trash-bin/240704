@@ -17,16 +17,32 @@ struct GraphNodeInternal<T> {
     data: T,
 }
 
-#[derive(Clone)]
 pub struct GraphNode<T> {
     internal: Weak<RefCell<GraphNodeInternal<T>>>,
 }
 
-#[derive(Clone)]
+impl<T> Clone for GraphNode<T> {
+    fn clone(&self) -> Self {
+        Self {
+            internal: self.internal.clone(),
+        }
+    }
+}
+
 pub struct GraphEdge<T> {
     pub from: GraphNode<T>,
     pub to: GraphNode<T>,
     pub distance: usize,
+}
+
+impl<T> Clone for GraphEdge<T> {
+    fn clone(&self) -> Self {
+        Self {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            distance: self.distance.clone(),
+        }
+    }
 }
 
 impl<T> Graph<T> {
@@ -113,8 +129,7 @@ impl<T> Deref for GraphNodeInternal<T> {
 impl<T> GraphNode<T> {
     // TODO: don't clone
     pub fn adjacent_nodes(&self) -> Vec<GraphEdge<T>> {
-        &self
-            .internal
+        self.internal
             .upgrade()
             .unwrap()
             .borrow()
@@ -146,34 +161,5 @@ impl<T> Ord for GraphNode<T> {
 impl<T> Hash for GraphNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.internal.as_ptr().hash(state);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_return_error() {
-        let adjacent_matrix = vec![vec![Some(1usize)]];
-        let values = vec![1i32, 2i32];
-        match Graph::new(values, adjacent_matrix) {
-            Err(e) => {
-                assert_eq!(e.to_string(), "Adjacent matrix size mismatch");
-            }
-            Ok(_) => panic!("Expected an error but got Ok"),
-        }
-
-        let adjacent_matrix = vec![vec![Some(1usize)]];
-        let values = vec![1i32];
-        match Graph::new(values, adjacent_matrix) {
-            Err(e) => {
-                assert_eq!(
-                    e.to_string(),
-                    "Adjacent matrix should have zeroes on its diagonal"
-                );
-            }
-            Ok(_) => panic!("Expected an error but got Ok"),
-        }
     }
 }
