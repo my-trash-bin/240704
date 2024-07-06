@@ -1,43 +1,16 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    hash::Hash,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, collections::HashMap, hash::Hash, ops::Deref, rc::Rc};
 
 #[derive(Debug)]
 pub struct PriorityQueue<T: Eq + Hash + Clone, P: Ord + Clone> {
-    internal: Rc<RefCell<PriorityQueueInternal<T, P>>>,
+    nodes: Vec<Rc<RefCell<Node<T, P>>>>,
+    map: HashMap<T, Rc<RefCell<Node<T, P>>>>,
 }
 
-#[derive(Debug)]
-struct PriorityQueueInternal<T: Eq + Hash + Clone, P: Ord + Clone> {
-    nodes: Vec<PriorityQueueNode<T, P>>,
-    map: HashMap<T, PriorityQueueNode<T, P>>,
-}
-
-#[derive(Debug)]
-struct PriorityQueueNodeInternal<T: Eq + Hash + Clone, P: Ord + Clone> {
-    of: Weak<RefCell<PriorityQueueInternal<T, P>>>,
-    parent: Option<Weak<RefCell<PriorityQueueNodeInternal<T, P>>>>,
-    left: Option<Rc<RefCell<PriorityQueueNodeInternal<T, P>>>>,
-    right: Option<Rc<RefCell<PriorityQueueNodeInternal<T, P>>>>,
+#[derive(Debug, Clone)]
+struct Node<T: Eq + Hash + Clone, P: Ord + Clone> {
     index: usize,
     priority: P,
     data: T,
-}
-
-#[derive(Debug)]
-pub struct PriorityQueueNode<T: Eq + Hash + Clone, P: Ord + Clone> {
-    internal: Rc<RefCell<PriorityQueueNodeInternal<T, P>>>,
-}
-
-impl<T: Eq + Hash + Clone, P: Ord + Clone> Clone for PriorityQueueNode<T, P> {
-    fn clone(&self) -> Self {
-        Self {
-            internal: self.internal.clone(),
-        }
-    }
 }
 
 fn parent_index(index: usize) -> usize {
@@ -48,156 +21,113 @@ fn left_child_index(index: usize) -> usize {
     2 * index + 1
 }
 
-fn is_left(index: usize) -> bool {
-    index == left_child_index(parent_index(index))
-}
-
-impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueueInternal<T, P> {
-    fn heapify(&mut self, index: usize) {
-        todo!()
+impl<T: Eq + Hash + Clone, P: Ord + Clone> Clone for PriorityQueue<T, P> {
+    fn clone(&self) -> Self {
+        let nodes = self
+            .nodes
+            .iter()
+            .map(|rc| {
+                Rc::new(RefCell::new(
+                    (rc as &dyn Deref<Target = RefCell<Node<T, P>>>)
+                        .deref()
+                        .borrow()
+                        .clone(),
+                ))
+            })
+            .collect::<Vec<_>>();
+        let mut map = HashMap::new();
+        for rc in nodes.iter() {
+            map.insert(rc.borrow().data.clone(), rc.clone());
+        }
+        PriorityQueue { nodes, map }
     }
 }
 
 impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
     pub fn new() -> PriorityQueue<T, P> {
         PriorityQueue {
-            internal: Rc::new(RefCell::new(PriorityQueueInternal {
-                nodes: Vec::new(),
-                map: HashMap::new(),
-            })),
+            nodes: Vec::new(),
+            map: HashMap::new(),
         }
     }
 
     pub fn pop_by_priority(&mut self) -> Option<(T, P)> {
-        let mut this = self.internal.borrow_mut();
-        if this.nodes.len() == 0 {
+        if self.nodes.len() == 0 {
             None
-        } else if this.nodes.len() == 1 {
-            let root = this.nodes.pop().unwrap();
-            let root_node = root.internal.borrow();
-            this.map.remove(&root_node.data);
+        } else if self.nodes.len() == 1 {
+            let root = self.nodes.pop().unwrap();
+            let root_node = root.borrow();
+            self.map.remove(&root_node.data);
             Some((root_node.data.clone(), root_node.priority.clone()))
         } else {
             let result = {
-                let root = this.nodes[0].clone();
-                let root_node = root.internal.borrow();
-                this.map.remove(&root_node.data);
+                let root = self.nodes[0].clone();
+                let root_node = root.borrow();
+                self.map.remove(&root_node.data);
                 Some((root_node.data.clone(), root_node.priority.clone()))
             };
-            let last = this.nodes.pop().unwrap();
-            let last_node = last.internal.borrow_mut();
-            if is_left(last_node.index) {
-                last_node
-                    .parent
-                    .clone()
-                    .unwrap()
-                    .upgrade()
-                    .unwrap()
-                    .borrow_mut()
-                    .left = None;
-            } else {
-                last_node
-                    .parent
-                    .clone()
-                    .unwrap()
-                    .upgrade()
-                    .unwrap()
-                    .borrow_mut()
-                    .right = None;
-            }
-            if let Some(left) = last_node.left.clone() {
-                let mut left_node = left.borrow_mut();
-                left_node.parent = Some(Rc::downgrade(&last.internal));
-                if let Some(right) = last_node.right.clone() {
-                    let mut right_node = right.borrow_mut();
-                    right_node.parent = Some(Rc::downgrade(&last.internal));
-                }
-            }
-            this.nodes[0] = last.clone();
-            this.heapify(0);
+            let last = self.nodes.pop().unwrap();
+            last.borrow_mut().index = 0;
+            self.nodes[0] = last;
+            self.heapify(0);
             result
         }
     }
 
-    pub fn get_node_by_data(&mut self, data: &T) -> Option<PriorityQueueNode<T, P>> {
-        let this = self.internal.borrow();
-        this.map.get(&data).map(|reference| reference.clone())
-    }
-
-    pub fn push(&mut self, data: T, priority: P) -> PriorityQueueNode<T, P> {
-        let mut this = self.internal.borrow_mut();
-        if let Some(node) = this.map.get_mut(&data) {
-            node.set_priority(priority);
-            node.clone()
+    pub fn push(&mut self, data: T, priority: P) {
+        if let Some(node) = self.map.get(&data) {
+            self.heapify({
+                let mut borrow = node.borrow_mut();
+                borrow.priority = priority;
+                borrow.index
+            });
         } else {
-            let index = this.nodes.len();
-            if index == 0 {
-                let last = PriorityQueueNode {
-                    internal: Rc::new(RefCell::new(PriorityQueueNodeInternal {
-                        of: Rc::downgrade(&self.internal),
-                        parent: None,
-                        left: None,
-                        right: None,
-                        index,
-                        priority,
-                        data,
-                    })),
-                };
-                this.nodes.push(last.clone());
-                this.map
-                    .insert(last.internal.borrow().data.clone(), last.clone());
-                last
-            } else {
-                let last = PriorityQueueNode {
-                    internal: Rc::new(RefCell::new(PriorityQueueNodeInternal {
-                        of: Rc::downgrade(&self.internal),
-                        parent: Some(Rc::downgrade(&this.nodes[parent_index(index)].internal)),
-                        left: None,
-                        right: None,
-                        index,
-                        priority,
-                        data,
-                    })),
-                };
-                if is_left(index) {
-                    last.internal
-                        .borrow()
-                        .parent
-                        .clone()
-                        .unwrap()
-                        .upgrade()
-                        .unwrap()
-                        .borrow_mut()
-                        .left = Some(last.internal.clone());
-                } else {
-                    last.internal
-                        .borrow()
-                        .parent
-                        .clone()
-                        .unwrap()
-                        .upgrade()
-                        .unwrap()
-                        .borrow_mut()
-                        .right = Some(last.internal.clone());
-                }
-                this.nodes.push(last.clone());
-                this.heapify(index);
-                this.map
-                    .insert(last.internal.borrow().data.clone(), last.clone());
-                last
-            }
+            let node = Rc::new(RefCell::new(Node {
+                index: self.nodes.len(),
+                priority,
+                data: data.clone(),
+            }));
+            self.nodes.push(node.clone());
+            self.map.insert(data, node);
+            self.heapify(self.nodes.len() - 1);
         }
     }
-}
 
-impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueueNode<T, P> {
-    pub fn set_priority(&mut self, priority: P) {
-        let (index, of) = {
-            let mut borrow = self.internal.borrow_mut();
-            borrow.priority = priority;
-            (borrow.index, borrow.of.upgrade().unwrap())
-        };
-        let mut this = of.borrow_mut();
-        this.heapify(index)
+    fn heapify(&mut self, index: usize) {
+        let parent_index = parent_index(index);
+        if index != 0
+            && self.nodes[parent_index].borrow().priority > self.nodes[index].borrow().priority
+        {
+            (self.nodes[parent_index], self.nodes[index]) =
+                (self.nodes[index].clone(), self.nodes[parent_index].clone());
+            self.nodes[index].borrow_mut().index = index;
+            self.nodes[parent_index].borrow_mut().index = parent_index;
+            self.heapify(parent_index);
+        }
+        let left_child_index = left_child_index(index);
+        if self.nodes.len() > left_child_index {
+            if self.nodes[index].borrow().priority > self.nodes[left_child_index].borrow().priority
+            {
+                (self.nodes[index], self.nodes[left_child_index]) = (
+                    self.nodes[left_child_index].clone(),
+                    self.nodes[index].clone(),
+                );
+                self.nodes[index].borrow_mut().index = index;
+                self.nodes[left_child_index].borrow_mut().index = left_child_index;
+                self.heapify(left_child_index);
+            }
+            if self.nodes.len() > left_child_index + 1
+                && self.nodes[index].borrow().priority
+                    > self.nodes[left_child_index + 1].borrow().priority
+            {
+                (self.nodes[index], self.nodes[left_child_index + 1]) = (
+                    self.nodes[left_child_index + 1].clone(),
+                    self.nodes[index].clone(),
+                );
+                self.nodes[index].borrow_mut().index = index;
+                self.nodes[left_child_index + 1].borrow_mut().index = left_child_index + 1;
+                self.heapify(left_child_index + 1);
+            }
+        }
     }
 }
