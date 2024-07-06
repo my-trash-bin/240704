@@ -36,7 +36,7 @@ pub fn dijkstra<T, D: GraphDistance>(
             if let Some(MapNode { total_distance, .. }) = visited.get(&node_to_visit) {
                 // get new distance
                 let (new_distance, new_move) = node_to_visit
-                    .adjacent()
+                    .reverse_adjacent()
                     .nodes
                     .into_iter()
                     .fold(None, |min, current| {

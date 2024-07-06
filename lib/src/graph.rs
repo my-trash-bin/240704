@@ -81,6 +81,7 @@ pub struct Graph<T, D: GraphDistance> {
 #[derive(Debug)]
 struct GraphNodeInternal<T, D: GraphDistance> {
     adjacent_nodes: Vec<GraphEdgeInternal<T, D>>,
+    reverse_adjacent_nodes: Vec<GraphEdgeInternal<T, D>>,
     data: T,
 }
 
@@ -161,8 +162,9 @@ impl<T, D: GraphDistance> Graph<T, D> {
             .into_iter()
             .map(|x| GraphNode {
                 internal: Rc::new(RefCell::new(GraphNodeInternal {
-                    data: x,
                     adjacent_nodes: vec![],
+                    reverse_adjacent_nodes: vec![],
+                    data: x,
                 })),
             })
             .collect();
@@ -191,12 +193,18 @@ impl<T, D: GraphDistance> Graph<T, D> {
                 }
                 if let Some(distance) = adjacent_matrix[i][j].clone() {
                     let from = Rc::downgrade(&Rc::clone(&nodes[i].internal));
-                    let to = Rc::downgrade(&Rc::clone(&nodes[i].internal));
+                    let to = Rc::downgrade(&Rc::clone(&nodes[j].internal));
+                    let internal = GraphEdgeInternal { from, to, distance };
                     nodes[i]
                         .internal
                         .borrow_mut()
                         .adjacent_nodes
-                        .push(GraphEdgeInternal { from, to, distance });
+                        .push(internal.clone());
+                    nodes[j]
+                        .internal
+                        .borrow_mut()
+                        .reverse_adjacent_nodes
+                        .push(internal);
                 }
             }
         }
@@ -244,6 +252,18 @@ impl<T, D: GraphDistance> GraphNode<T, D> {
                 .internal
                 .borrow()
                 .adjacent_nodes
+                .iter()
+                .map(GraphEdgeInternal::to_graph_edge)
+                .collect(),
+        }
+    }
+
+    pub fn reverse_adjacent(&self) -> GraphNodeAdjacent<T, D> {
+        GraphNodeAdjacent {
+            nodes: self
+                .internal
+                .borrow()
+                .reverse_adjacent_nodes
                 .iter()
                 .map(GraphEdgeInternal::to_graph_edge)
                 .collect(),
