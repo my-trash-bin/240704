@@ -1,16 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, hash::Hash, ops::Deref, rc::Rc};
 
 #[derive(Debug)]
-pub struct PriorityQueue<T: Eq + Hash + Clone, P: Ord + Clone> {
-    nodes: Vec<Rc<RefCell<Node<T, P>>>>,
-    map: HashMap<T, Rc<RefCell<Node<T, P>>>>,
+pub struct PriorityQueue<T: Eq + Hash + Clone, P: Ord + Clone, X: Clone> {
+    nodes: Vec<Rc<RefCell<Node<T, P, X>>>>,
+    map: HashMap<T, Rc<RefCell<Node<T, P, X>>>>,
 }
 
 #[derive(Debug, Clone)]
-struct Node<T: Eq + Hash + Clone, P: Ord + Clone> {
+struct Node<T: Eq + Hash + Clone, P: Ord + Clone, X: Clone> {
     index: usize,
-    priority: P,
     data: T,
+    priority: P,
+    extra: X,
 }
 
 fn parent_index(index: usize) -> usize {
@@ -21,14 +22,14 @@ fn left_child_index(index: usize) -> usize {
     2 * index + 1
 }
 
-impl<T: Eq + Hash + Clone, P: Ord + Clone> Clone for PriorityQueue<T, P> {
+impl<T: Eq + Hash + Clone, P: Ord + Clone, X: Clone> Clone for PriorityQueue<T, P, X> {
     fn clone(&self) -> Self {
         let nodes = self
             .nodes
             .iter()
             .map(|rc| {
                 Rc::new(RefCell::new(
-                    (rc as &dyn Deref<Target = RefCell<Node<T, P>>>)
+                    (rc as &dyn Deref<Target = RefCell<Node<T, P, X>>>)
                         .deref()
                         .borrow()
                         .clone(),
@@ -43,28 +44,36 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> Clone for PriorityQueue<T, P> {
     }
 }
 
-impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
-    pub fn new() -> PriorityQueue<T, P> {
+impl<T: Eq + Hash + Clone, P: Ord + Clone, X: Clone> PriorityQueue<T, P, X> {
+    pub fn new() -> PriorityQueue<T, P, X> {
         PriorityQueue {
             nodes: Vec::new(),
             map: HashMap::new(),
         }
     }
 
-    pub fn pop_by_priority(&mut self) -> Option<(T, P)> {
+    pub fn pop_by_priority(&mut self) -> Option<(T, P, X)> {
         if self.nodes.len() == 0 {
             None
         } else if self.nodes.len() == 1 {
             let root = self.nodes.pop().unwrap();
             let root_node = root.borrow();
             self.map.remove(&root_node.data);
-            Some((root_node.data.clone(), root_node.priority.clone()))
+            Some((
+                root_node.data.clone(),
+                root_node.priority.clone(),
+                root_node.extra.clone(),
+            ))
         } else {
             let result = {
                 let root = self.nodes[0].clone();
                 let root_node = root.borrow();
                 self.map.remove(&root_node.data);
-                Some((root_node.data.clone(), root_node.priority.clone()))
+                Some((
+                    root_node.data.clone(),
+                    root_node.priority.clone(),
+                    root_node.extra.clone(),
+                ))
             };
             let last = self.nodes.pop().unwrap();
             last.borrow_mut().index = 0;
@@ -74,7 +83,7 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
         }
     }
 
-    pub fn push(&mut self, data: T, priority: P) {
+    pub fn push(&mut self, data: T, priority: P, extra: X) {
         if let Some(node) = self.map.get(&data) {
             self.heapify({
                 let mut borrow = node.borrow_mut();
@@ -84,8 +93,9 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
         } else {
             let node = Rc::new(RefCell::new(Node {
                 index: self.nodes.len(),
-                priority,
                 data: data.clone(),
+                priority,
+                extra,
             }));
             self.nodes.push(node.clone());
             self.map.insert(data, node);
@@ -136,11 +146,13 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
 mod tests {
     use super::*;
 
-    fn to_vec<T: Eq + Hash + Clone, P: Ord + Clone>(pq: &PriorityQueue<T, P>) -> Vec<T> {
+    fn to_vec<T: Eq + Hash + Clone, P: Ord + Clone, X: Clone>(
+        pq: &PriorityQueue<T, P, X>,
+    ) -> Vec<T> {
         let mut result = Vec::new();
         let mut pq = pq.clone();
 
-        while let Some((data, _)) = pq.pop_by_priority() {
+        while let Some((data, _, _)) = pq.pop_by_priority() {
             result.push(data);
         }
 
@@ -148,29 +160,29 @@ mod tests {
     }
 
     #[test]
-    fn should_work() {
-        let mut pq = PriorityQueue::<i32, usize>::new();
+    fn without_extra() {
+        let mut pq = PriorityQueue::<i32, usize, ()>::new();
         assert_eq!(to_vec(&pq), vec![]);
 
-        pq.push(42, 42);
+        pq.push(42, 42, ());
         assert_eq!(to_vec(&pq), vec![42]);
 
-        pq.push(1, 1);
+        pq.push(1, 1, ());
         assert_eq!(to_vec(&pq), vec![1, 42]);
 
-        pq.push(2, 2);
+        pq.push(2, 2, ());
         assert_eq!(to_vec(&pq), vec![1, 2, 42]);
 
-        pq.push(100, 100);
+        pq.push(100, 100, ());
         assert_eq!(to_vec(&pq), vec![1, 2, 42, 100]);
 
-        pq.push(42, 0);
+        pq.push(42, 0, ());
         assert_eq!(to_vec(&pq), vec![42, 1, 2, 100]);
 
         _ = pq.pop_by_priority();
         assert_eq!(to_vec(&pq), vec![1, 2, 100]);
 
-        pq.push(42, 42);
+        pq.push(42, 42, ());
         assert_eq!(to_vec(&pq), vec![1, 2, 42, 100]);
     }
 }

@@ -1,4 +1,4 @@
-use std::{cmp::min_by_key, collections::HashMap};
+use std::collections::HashMap;
 
 use graph::{GraphDistance, GraphEdge, GraphNode};
 use priority_queue::PriorityQueue;
@@ -15,7 +15,7 @@ pub fn dijkstra<T, D: GraphDistance>(
         last_move: Option<GraphEdge<T, D>>,
     }
 
-    let mut to_visit = PriorityQueue::<GraphNode<T, D>, D>::new();
+    let mut to_visit = PriorityQueue::<GraphNode<T, D>, D, GraphEdge<T, D>>::new();
     let mut visited = HashMap::<GraphNode<T, D>, MapNode<T, D>>::new();
 
     // initial visit
@@ -27,47 +27,10 @@ pub fn dijkstra<T, D: GraphDistance>(
         },
     );
     for edge in from.adjacent().nodes {
-        to_visit.push(edge.to, edge.distance);
+        to_visit.push(edge.to.clone(), edge.distance.clone(), edge);
     }
 
-    while let Some((node_to_visit, new_distance)) = to_visit.pop_by_priority() {
-        // TODO: remove below
-        // get new distance
-        let (new_distance, new_move) = node_to_visit
-            .reverse_adjacent()
-            .nodes
-            .into_iter()
-            .fold(None, |min, current| {
-                let current = if let Some(MapNode {
-                    total_distance,
-                    last_move,
-                }) = visited.get(&current.from)
-                {
-                    Some((
-                        total_distance.clone() + current.distance.clone(),
-                        GraphEdge {
-                            from: if let Some(GraphEdge { to, .. }) = last_move {
-                                to.clone()
-                            } else {
-                                from.clone()
-                            },
-                            to: node_to_visit.clone(),
-                            distance: current.distance,
-                        },
-                    ))
-                } else {
-                    None
-                };
-
-                match (min, current) {
-                    (Some(min), Some(current)) => Some(min_by_key(min, current, |d| d.0.clone())),
-                    (Some(min), None) => Some(min),
-                    (None, Some(current)) => Some(current),
-                    (None, None) => None,
-                }
-            })
-            .unwrap();
-
+    while let Some((node_to_visit, new_distance, new_move)) = to_visit.pop_by_priority() {
         if let Some(MapNode { total_distance, .. }) = visited.get(&node_to_visit) {
             // visit only if found shorter distance if already visited
             if new_distance < *total_distance {
@@ -79,7 +42,11 @@ pub fn dijkstra<T, D: GraphDistance>(
                     },
                 );
                 for edge in node_to_visit.adjacent().nodes {
-                    to_visit.push(edge.to, new_distance.clone() + edge.distance)
+                    to_visit.push(
+                        edge.to.clone(),
+                        new_distance.clone() + edge.distance.clone(),
+                        edge,
+                    )
                 }
             }
         } else {
@@ -92,7 +59,11 @@ pub fn dijkstra<T, D: GraphDistance>(
                 },
             );
             for edge in node_to_visit.adjacent().nodes {
-                to_visit.push(edge.to, new_distance.clone() + edge.distance)
+                to_visit.push(
+                    edge.to.clone(),
+                    new_distance.clone() + edge.distance.clone(),
+                    edge,
+                )
             }
         }
     }
