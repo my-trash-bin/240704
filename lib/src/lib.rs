@@ -6,6 +6,7 @@ use std::{
 use graph::{GraphDistance, GraphEdge, GraphNode};
 
 pub mod graph;
+pub mod priority_queue;
 
 pub fn dijkstra<T, D: GraphDistance>(
     from: GraphNode<T, D>,
