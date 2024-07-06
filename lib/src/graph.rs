@@ -11,20 +11,49 @@ pub struct Graph<T> {
     nodes: Vec<Rc<RefCell<GraphNodeInternal<T>>>>,
 }
 
-#[derive(Clone)]
 struct GraphNodeInternal<T> {
-    adjacent_nodes: Vec<GraphEdge<T>>,
+    adjacent_nodes: Vec<GraphEdgeInternal<T>>,
     data: T,
 }
 
 pub struct GraphNode<T> {
-    internal: Weak<RefCell<GraphNodeInternal<T>>>,
+    internal: Rc<RefCell<GraphNodeInternal<T>>>,
 }
 
 impl<T> Clone for GraphNode<T> {
     fn clone(&self) -> Self {
         Self {
             internal: self.internal.clone(),
+        }
+    }
+}
+
+struct GraphEdgeInternal<T> {
+    pub from: Weak<RefCell<GraphNodeInternal<T>>>,
+    pub to: Weak<RefCell<GraphNodeInternal<T>>>,
+    pub distance: usize,
+}
+
+impl<T> Clone for GraphEdgeInternal<T> {
+    fn clone(&self) -> Self {
+        Self {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            distance: self.distance,
+        }
+    }
+}
+
+impl<T> GraphEdgeInternal<T> {
+    fn to_graph_edge(&self) -> GraphEdge<T> {
+        GraphEdge {
+            from: GraphNode {
+                internal: self.from.upgrade().unwrap(),
+            },
+            to: GraphNode {
+                internal: self.to.upgrade().unwrap(),
+            },
+            distance: self.distance,
         }
     }
 }
@@ -53,7 +82,12 @@ impl<T> Graph<T> {
         let length = values.len();
         let nodes: Vec<Rc<RefCell<GraphNodeInternal<T>>>> = values
             .into_iter()
-            .map(|x| Rc::new(RefCell::new(GraphNodeInternal::new(x))))
+            .map(|x| {
+                Rc::new(RefCell::new(GraphNodeInternal {
+                    data: x,
+                    adjacent_nodes: vec![],
+                }))
+            })
             .collect();
 
         if adjacent_matrix.len() != length || adjacent_matrix.iter().any(|x| x.len() != length) {
@@ -83,16 +117,12 @@ impl<T> Graph<T> {
                     continue;
                 }
                 if let Some(distance) = adjacent_matrix[i][j] {
-                    let from = GraphNode {
-                        internal: Rc::downgrade(&Rc::clone(&nodes[i])),
-                    };
-                    let to = GraphNode {
-                        internal: Rc::downgrade(&Rc::clone(&nodes[j])),
-                    };
+                    let from = Rc::downgrade(&Rc::clone(&nodes[i]));
+                    let to = Rc::downgrade(&Rc::clone(&nodes[i]));
                     nodes[i]
                         .borrow_mut()
                         .adjacent_nodes
-                        .push(GraphEdge { from, to, distance });
+                        .push(GraphEdgeInternal { from, to, distance });
                 }
             }
         }
@@ -105,19 +135,6 @@ impl<T> Graph<T> {
     }
 }
 
-impl<T> GraphNodeInternal<T> {
-    fn new(value: T) -> GraphNodeInternal<T> {
-        return GraphNodeInternal {
-            adjacent_nodes: vec![],
-            data: value,
-        };
-    }
-
-    fn adjacent_nodes(&self) -> &Vec<GraphEdge<T>> {
-        &self.adjacent_nodes
-    }
-}
-
 impl<T> Deref for GraphNodeInternal<T> {
     type Target = T;
 
@@ -126,15 +143,37 @@ impl<T> Deref for GraphNodeInternal<T> {
     }
 }
 
+pub struct GraphNodeAdjacent<T> {
+    pub nodes: Vec<GraphEdge<T>>,
+}
+
+impl<T> Clone for GraphNodeAdjacent<T> {
+    fn clone(&self) -> Self {
+        Self {
+            nodes: self.nodes.clone(),
+        }
+    }
+}
+
 impl<T> GraphNode<T> {
-    // TODO: don't clone
-    pub fn adjacent_nodes(&self) -> Vec<GraphEdge<T>> {
-        self.internal
-            .upgrade()
-            .unwrap()
-            .borrow()
-            .adjacent_nodes
-            .clone()
+    pub fn adjacent(&self) -> GraphNodeAdjacent<T> {
+        GraphNodeAdjacent {
+            nodes: self
+                .internal
+                .borrow()
+                .adjacent_nodes
+                .iter()
+                .map(|internal| GraphEdge {
+                    from: GraphNode {
+                        internal: internal.from.upgrade().unwrap(),
+                    },
+                    to: GraphNode {
+                        internal: internal.to.upgrade().unwrap(),
+                    },
+                    distance: internal.distance,
+                })
+                .collect(),
+        }
     }
 }
 

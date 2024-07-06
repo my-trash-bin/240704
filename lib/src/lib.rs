@@ -9,13 +9,14 @@ pub mod graph;
 
 pub fn dijkstra<T>(from: GraphNode<T>, to: GraphNode<T>) -> Option<Vec<GraphEdge<T>>> {
     struct HeapNode<T> {
-        node: GraphNode<T>,
-        distance: usize,
+        edge: GraphEdge<T>,
+        total_distance: usize,
     }
 
     impl<T> PartialEq for HeapNode<T> {
         fn eq(&self, other: &Self) -> bool {
-            self.distance == other.distance && self.node.eq(&other.node)
+            self.edge.to.eq(&other.edge.to)
+            // from, distance, total_distance is intentionally missing
         }
     }
 
@@ -28,13 +29,9 @@ pub fn dijkstra<T>(from: GraphNode<T>, to: GraphNode<T>) -> Option<Vec<GraphEdge
     }
 
     impl<T> Ord for HeapNode<T> {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            let result = self.distance.cmp(&other.distance);
-            if result == Ordering::Equal {
-                self.node.cmp(&other.node)
-            } else {
-                result
-            }
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.edge.to.cmp(&other.edge.to)
+            // from, distance, total_distance is intentionally missing
         }
     }
 
@@ -42,16 +39,25 @@ pub fn dijkstra<T>(from: GraphNode<T>, to: GraphNode<T>) -> Option<Vec<GraphEdge
     let mut visited = HashMap::<GraphNode<T>, (usize, Vec<GraphEdge<T>>)>::new();
 
     visited.insert(from.clone(), (0, vec![]));
-    for edge in from.adjacent_nodes() {
+    for edge in from.adjacent().nodes {
         to_visit.push(HeapNode {
-            node: edge.to,
-            distance: edge.distance,
+            edge: edge.clone(),
+            total_distance: edge.distance,
         })
     }
 
     loop {
-        if let Some(HeapNode { node, distance }) = to_visit.pop() {
-            //
+        if let Some(HeapNode {
+            edge,
+            total_distance,
+        }) = to_visit.pop()
+        {
+            if let Some((previous_distance, path)) = visited.get(&edge.to) {
+                if edge.distance < *previous_distance {
+                    let mut path = visited.get(&from).unwrap().1.clone();
+                    path.push(GraphEdge {})
+                }
+            }
         } else {
             return None;
         }
