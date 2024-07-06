@@ -61,9 +61,9 @@ mod tests {
     #[test]
     fn simplest_case() {
         let adjacent_matrix = vec![
-            vec![None, Some(GraphDistanceF32(1f32)), None],
-            vec![Some(GraphDistanceF32(2f32)), None, None],
-            vec![Some(GraphDistanceF32(3f32)), None, None],
+            vec![None, Some(GraphDistanceF32::new(1f32)), None],
+            vec![Some(GraphDistanceF32::new(2f32)), None, None],
+            vec![Some(GraphDistanceF32::new(3f32)), None, None],
         ];
         let values = vec!["1", "2", "3"];
         let graph = Graph::new(values, adjacent_matrix).unwrap();
@@ -75,7 +75,7 @@ mod tests {
         assert_eq!(
             dijkstra(node0.clone(), node1.clone()),
             Some(vec![GraphEdge {
-                distance: GraphDistanceF32(1f32),
+                distance: GraphDistanceF32::new(1f32),
                 from: node0.clone(),
                 to: node1.clone()
             }])
@@ -84,7 +84,7 @@ mod tests {
         assert_eq!(
             dijkstra(node1.clone(), node0.clone()),
             Some(vec![GraphEdge {
-                distance: GraphDistanceF32(2f32),
+                distance: GraphDistanceF32::new(2f32),
                 from: node1.clone(),
                 to: node0.clone()
             }])
@@ -98,12 +98,12 @@ mod tests {
             dijkstra(node2.clone(), node1.clone()),
             Some(vec![
                 GraphEdge {
-                    distance: GraphDistanceF32(3f32),
+                    distance: GraphDistanceF32::new(3f32),
                     from: node2.clone(),
                     to: node0.clone()
                 },
                 GraphEdge {
-                    distance: GraphDistanceF32(1f32),
+                    distance: GraphDistanceF32::new(1f32),
                     from: node0.clone(),
                     to: node1.clone()
                 }

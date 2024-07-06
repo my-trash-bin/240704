@@ -38,9 +38,9 @@ impl_graph_distance!(GraphDistanceF32, GraphDistanceF32(0f32));
 impl_graph_distance!(GraphDistanceF64, GraphDistanceF64(0f64));
 
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
-pub struct GraphDistanceF32(pub f32);
+pub struct GraphDistanceF32(f32);
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
-pub struct GraphDistanceF64(pub f64);
+pub struct GraphDistanceF64(f64);
 
 impl Eq for GraphDistanceF32 {}
 
@@ -54,7 +54,17 @@ impl Add for GraphDistanceF32 {
     type Output = GraphDistanceF32;
 
     fn add(self, rhs: Self) -> GraphDistanceF32 {
-        GraphDistanceF32(self.0 + rhs.0)
+        let result = self.0 + rhs.0;
+        GraphDistanceF32::new(result)
+    }
+}
+
+impl GraphDistanceF32 {
+    pub fn new(f: f32) -> GraphDistanceF32 {
+        if f.is_nan() {
+            panic!("GraphDistanceF32 cannot be NaN")
+        }
+        GraphDistanceF32(f)
     }
 }
 
@@ -70,7 +80,17 @@ impl Add for GraphDistanceF64 {
     type Output = GraphDistanceF64;
 
     fn add(self, rhs: Self) -> GraphDistanceF64 {
-        GraphDistanceF64(self.0 + rhs.0)
+        let result = self.0 + rhs.0;
+        GraphDistanceF64::new(result)
+    }
+}
+
+impl GraphDistanceF64 {
+    pub fn new(f: f64) -> GraphDistanceF64 {
+        if f.is_nan() {
+            panic!("GraphDistanceF64 cannot be NaN")
+        }
+        GraphDistanceF64(f)
     }
 }
 
