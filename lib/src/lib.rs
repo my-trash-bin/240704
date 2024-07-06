@@ -1,13 +1,14 @@
 use std::{
     cmp::min_by_key,
     collections::{BinaryHeap, HashMap},
+    fmt::Debug,
 };
 
 use graph::{GraphDistance, GraphEdge, GraphNode};
 
 pub mod graph;
 
-pub fn dijkstra<T, D: GraphDistance>(
+pub fn dijkstra<T: Debug, D: GraphDistance + Debug>(
     from: GraphNode<T, D>,
     to: GraphNode<T, D>,
 ) -> Option<Vec<GraphEdge<T, D>>> {
@@ -30,65 +31,105 @@ pub fn dijkstra<T, D: GraphDistance>(
     for edge in from.adjacent().nodes {
         to_visit.push(edge.to)
     }
+    println!("visited: {:?}", from);
+    println!("to_visit: {:?}", to_visit);
 
-    loop {
-        if let Some(node_to_visit) = to_visit.pop() {
-            if let Some(MapNode { total_distance, .. }) = visited.get(&node_to_visit) {
-                // get new distance
-                let (new_distance, new_move) = node_to_visit
-                    .reverse_adjacent()
-                    .nodes
-                    .into_iter()
-                    .fold(None, |min, current| {
-                        let current = if let Some(MapNode {
-                            total_distance,
-                            last_move,
-                        }) = visited.get(&current.from)
-                        {
-                            Some((total_distance.clone() + current.distance, last_move))
-                        } else {
-                            None
-                        };
-
-                        min_by_key(min, current, |d| d.clone().map(|d| d.0))
-                    })
-                    .unwrap();
-
-                // visit
-                if new_distance < *total_distance {
-                    visited.insert(
-                        node_to_visit.clone(),
-                        MapNode {
-                            total_distance: new_distance,
-                            last_move: new_move.clone(),
+    while let Some(node_to_visit) = to_visit.pop() {
+        println!("visiting: {:?}", node_to_visit);
+        // get new distance
+        let (new_distance, new_move) = node_to_visit
+            .reverse_adjacent()
+            .nodes
+            .into_iter()
+            .fold(None, |min, current| {
+                let current = if let Some(MapNode {
+                    total_distance,
+                    last_move,
+                }) = visited.get(&current.from)
+                {
+                    println!("one of edge to node to visit is already visited");
+                    Some((
+                        total_distance.clone() + current.distance.clone(),
+                        GraphEdge {
+                            from: if let Some(GraphEdge { to, .. }) = last_move {
+                                to.clone()
+                            } else {
+                                from.clone()
+                            },
+                            to: node_to_visit.clone(),
+                            distance: current.distance,
                         },
-                    );
-                    for edge in node_to_visit.adjacent().nodes {
-                        to_visit.push(edge.to)
-                    }
+                    ))
+                } else {
+                    println!("one of edge to node to visit is not already visited");
+                    None
+                };
+
+                let result = match (min, current) {
+                    (Some(min), Some(current)) => Some(min_by_key(min, current, |d| d.0.clone())),
+                    (Some(min), None) => Some(min),
+                    (None, Some(current)) => Some(current),
+                    (None, None) => None,
+                };
+                println!("  so, returning {:?}", result);
+                result
+            })
+            .unwrap();
+
+        if let Some(MapNode { total_distance, .. }) = visited.get(&node_to_visit) {
+            // visit only if found shorter distance if already visited
+            if new_distance < *total_distance {
+                visited.insert(
+                    node_to_visit.clone(),
+                    MapNode {
+                        total_distance: new_distance,
+                        last_move: Some(new_move.clone()),
+                    },
+                );
+                for edge in node_to_visit.adjacent().nodes {
+                    to_visit.push(edge.to)
                 }
+                println!("visited: {:?}", node_to_visit);
+                println!("to_visit: {:?}", to_visit);
+            } else {
+                println!("not needed to visit.");
             }
         } else {
-            // if visited all connected
-            return if let Some(MapNode { last_move, .. }) = visited.get(&to) {
-                Some(if let Some(last_move) = last_move {
-                    let mut result = vec![last_move.clone()];
-                    let mut last_move = Some(last_move.clone());
-                    while let Some(edge) = last_move {
-                        result.push(edge.clone());
-                        last_move = visited.get(&edge.from).unwrap().last_move.clone();
-                    }
-                    result.reverse();
-                    result
-                } else {
-                    vec![]
-                })
-            } else {
-                // from and to is not connected
-                None
-            };
+            // unconditionally visit if not already visited
+            visited.insert(
+                node_to_visit.clone(),
+                MapNode {
+                    total_distance: new_distance,
+                    last_move: Some(new_move),
+                },
+            );
+            for edge in node_to_visit.adjacent().nodes {
+                to_visit.push(edge.to)
+            }
+            println!("visited: {:?}", node_to_visit);
+            println!("to_visit: {:?}", to_visit);
         }
     }
+    // visited all connected
+    println!("visited all connected nodes.");
+    return if let Some(MapNode { last_move, .. }) = visited.get(&to) {
+        // from and to is connected
+        Some(if let Some(last_move) = last_move {
+            let mut last_move = Some(last_move.clone());
+            let mut result = Vec::new();
+            while let Some(edge) = last_move {
+                result.push(edge.clone());
+                last_move = visited.get(&edge.from).unwrap().last_move.clone();
+            }
+            result.reverse();
+            result
+        } else {
+            vec![]
+        })
+    } else {
+        // from and to is not connected
+        None
+    };
 }
 
 #[cfg(test)]
