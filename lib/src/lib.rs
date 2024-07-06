@@ -10,72 +10,37 @@ pub fn dijkstra<T, D: GraphDistance>(
     from: GraphNode<T, D>,
     to: GraphNode<T, D>,
 ) -> Option<Vec<GraphEdge<T, D>>> {
-    struct MapNode<T, D: GraphDistance> {
-        total_distance: D,
-        last_move: Option<GraphEdge<T, D>>,
-    }
-
     let mut to_visit = PriorityQueue::<GraphNode<T, D>, D, GraphEdge<T, D>>::new();
-    let mut visited = HashMap::<GraphNode<T, D>, MapNode<T, D>>::new();
+    let mut visited = HashMap::<GraphNode<T, D>, Option<GraphEdge<T, D>>>::new();
 
-    // initial visit
-    visited.insert(
-        from.clone(),
-        MapNode {
-            total_distance: D::zero(),
-            last_move: None,
-        },
-    );
+    visited.insert(from.clone(), None);
     for edge in from.adjacent().nodes {
         to_visit.push(edge.to.clone(), edge.distance.clone(), edge);
     }
 
     while let Some((node_to_visit, new_distance, new_move)) = to_visit.pop_by_priority() {
-        if let Some(MapNode { total_distance, .. }) = visited.get(&node_to_visit) {
-            // visit only if found shorter distance if already visited
-            if new_distance < *total_distance {
-                visited.insert(
-                    node_to_visit.clone(),
-                    MapNode {
-                        total_distance: new_distance.clone(),
-                        last_move: Some(new_move.clone()),
-                    },
-                );
-                for edge in node_to_visit.adjacent().nodes {
-                    to_visit.push(
-                        edge.to.clone(),
-                        new_distance.clone() + edge.distance.clone(),
-                        edge,
-                    )
-                }
-            }
-        } else {
-            // unconditionally visit if not already visited
-            visited.insert(
-                node_to_visit.clone(),
-                MapNode {
-                    total_distance: new_distance.clone(),
-                    last_move: Some(new_move),
-                },
-            );
-            for edge in node_to_visit.adjacent().nodes {
+        visited.insert(node_to_visit.clone(), Some(new_move));
+        if node_to_visit == to {
+            break;
+        }
+        for edge in node_to_visit.adjacent().nodes {
+            if !visited.contains_key(&edge.to) {
                 to_visit.push(
                     edge.to.clone(),
                     new_distance.clone() + edge.distance.clone(),
                     edge,
-                )
+                );
             }
         }
     }
-    // visited all connected
-    if let Some(MapNode { last_move, .. }) = visited.get(&to) {
-        // from and to is connected
+
+    if let Some(last_move) = visited.get(&to) {
         Some(if let Some(last_move) = last_move {
             let mut last_move = Some(last_move.clone());
             let mut result = Vec::new();
             while let Some(edge) = last_move {
                 result.push(edge.clone());
-                last_move = visited.get(&edge.from).unwrap().last_move.clone();
+                last_move = visited.get(&edge.from).unwrap().clone();
             }
             result.reverse();
             result
@@ -83,7 +48,6 @@ pub fn dijkstra<T, D: GraphDistance>(
             vec![]
         })
     } else {
-        // from and to is not connected
         None
     }
 }
