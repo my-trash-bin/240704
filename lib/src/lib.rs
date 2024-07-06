@@ -1,9 +1,7 @@
-use std::{
-    cmp::min_by_key,
-    collections::{BinaryHeap, HashMap},
-};
+use std::{cmp::min_by_key, collections::HashMap};
 
 use graph::{GraphDistance, GraphEdge, GraphNode};
+use priority_queue::PriorityQueue;
 
 pub mod graph;
 pub mod priority_queue;
@@ -17,7 +15,7 @@ pub fn dijkstra<T, D: GraphDistance>(
         last_move: Option<GraphEdge<T, D>>,
     }
 
-    let mut to_visit = BinaryHeap::<GraphNode<T, D>>::new();
+    let mut to_visit = PriorityQueue::<GraphNode<T, D>, D>::new();
     let mut visited = HashMap::<GraphNode<T, D>, MapNode<T, D>>::new();
 
     // initial visit
@@ -29,10 +27,11 @@ pub fn dijkstra<T, D: GraphDistance>(
         },
     );
     for edge in from.adjacent().nodes {
-        to_visit.push(edge.to)
+        to_visit.push(edge.to, edge.distance);
     }
 
-    while let Some(node_to_visit) = to_visit.pop() {
+    while let Some((node_to_visit, new_distance)) = to_visit.pop_by_priority() {
+        // TODO: remove below
         // get new distance
         let (new_distance, new_move) = node_to_visit
             .reverse_adjacent()
@@ -75,12 +74,12 @@ pub fn dijkstra<T, D: GraphDistance>(
                 visited.insert(
                     node_to_visit.clone(),
                     MapNode {
-                        total_distance: new_distance,
+                        total_distance: new_distance.clone(),
                         last_move: Some(new_move.clone()),
                     },
                 );
                 for edge in node_to_visit.adjacent().nodes {
-                    to_visit.push(edge.to)
+                    to_visit.push(edge.to, new_distance.clone() + edge.distance)
                 }
             }
         } else {
@@ -88,12 +87,12 @@ pub fn dijkstra<T, D: GraphDistance>(
             visited.insert(
                 node_to_visit.clone(),
                 MapNode {
-                    total_distance: new_distance,
+                    total_distance: new_distance.clone(),
                     last_move: Some(new_move),
                 },
             );
             for edge in node_to_visit.adjacent().nodes {
-                to_visit.push(edge.to)
+                to_visit.push(edge.to, new_distance.clone() + edge.distance)
             }
         }
     }
