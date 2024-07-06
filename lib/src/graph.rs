@@ -7,7 +7,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-pub trait GraphDistance: Ord + Add<Output = Self> + Clone + Sized {
+pub trait GraphDistance: Ord + Add<Output = Self> + Clone {
     fn zero() -> Self;
 }
 macro_rules! impl_graph_distance {
