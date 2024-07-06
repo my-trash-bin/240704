@@ -139,35 +139,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn should_work() {
+    fn simplest_case() {
         let adjacent_matrix = vec![
-            vec![None, Some(GraphDistanceF32(1f32))],
-            vec![Some(GraphDistanceF32(2f32)), None],
+            vec![None, Some(GraphDistanceF32(1f32)), None],
+            vec![Some(GraphDistanceF32(2f32)), None, None],
+            vec![Some(GraphDistanceF32(3f32)), None, None],
         ];
-        let values = vec!["Hello", "World"];
+        let values = vec!["1", "2", "3"];
         let graph = Graph::new(values, adjacent_matrix).unwrap();
 
-        let hello = graph[0].clone();
-        let world = graph[1].clone();
+        let node0 = graph[0].clone();
+        let node1 = graph[1].clone();
+        let node2 = graph[2].clone();
 
         assert_eq!(
-            dijkstra(hello.clone(), world.clone()),
+            dijkstra(node0.clone(), node1.clone()),
             Some(vec![GraphEdge {
                 distance: GraphDistanceF32(1f32),
-                from: hello.clone(),
-                to: world.clone()
+                from: node0.clone(),
+                to: node1.clone()
             }])
         );
 
         assert_eq!(
-            dijkstra(world.clone(), hello.clone()),
+            dijkstra(node1.clone(), node0.clone()),
             Some(vec![GraphEdge {
                 distance: GraphDistanceF32(2f32),
-                from: world.clone(),
-                to: hello.clone()
+                from: node1.clone(),
+                to: node0.clone()
             }])
         );
 
-        assert_eq!(dijkstra(hello.clone(), hello.clone()), Some(vec![]));
+        assert_eq!(dijkstra(node0.clone(), node0.clone()), Some(vec![]));
+
+        assert_eq!(dijkstra(node0.clone(), node2.clone()), None);
+
+        assert_eq!(
+            dijkstra(node2.clone(), node1.clone()),
+            Some(vec![
+                GraphEdge {
+                    distance: GraphDistanceF32(3f32),
+                    from: node2.clone(),
+                    to: node0.clone()
+                },
+                GraphEdge {
+                    distance: GraphDistanceF32(1f32),
+                    from: node0.clone(),
+                    to: node1.clone()
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn should_work() {
+        //
     }
 }
