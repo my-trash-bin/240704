@@ -12,9 +12,12 @@ pub trait GraphDistance: Ord + Add<Output = Self> + Clone + Sized {
 }
 macro_rules! impl_graph_distance {
     ($id: ident) => {
+        impl_graph_distance!($id, 0);
+    };
+    ($id: ident, $zero: expr) => {
         impl GraphDistance for $id {
             fn zero() -> Self {
-                0
+                $zero
             }
         }
     };
@@ -31,6 +34,45 @@ impl_graph_distance!(i32);
 impl_graph_distance!(i64);
 impl_graph_distance!(i128);
 impl_graph_distance!(isize);
+impl_graph_distance!(GraphDistanceF32, GraphDistanceF32(0f32));
+impl_graph_distance!(GraphDistanceF64, GraphDistanceF64(0f64));
+
+#[derive(PartialEq, PartialOrd, Clone)]
+pub struct GraphDistanceF32(pub f32);
+#[derive(PartialEq, PartialOrd, Clone)]
+pub struct GraphDistanceF64(pub f64);
+
+impl Eq for GraphDistanceF32 {}
+
+impl Ord for GraphDistanceF32 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl Add for GraphDistanceF32 {
+    type Output = GraphDistanceF32;
+
+    fn add(self, rhs: Self) -> GraphDistanceF32 {
+        GraphDistanceF32(self.0 + rhs.0)
+    }
+}
+
+impl Eq for GraphDistanceF64 {}
+
+impl Ord for GraphDistanceF64 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl Add for GraphDistanceF64 {
+    type Output = GraphDistanceF64;
+
+    fn add(self, rhs: Self) -> GraphDistanceF64 {
+        GraphDistanceF64(self.0 + rhs.0)
+    }
+}
 
 pub struct Graph<T, D: GraphDistance> {
     nodes: Vec<Rc<RefCell<GraphNodeInternal<T, D>>>>,
