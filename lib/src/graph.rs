@@ -3,7 +3,7 @@ use std::{
     error::Error,
     hash::{Hash, Hasher},
     io,
-    ops::{Add, Deref},
+    ops::{Add, Deref, Index},
     rc::{Rc, Weak},
 };
 
@@ -37,9 +37,9 @@ impl_graph_distance!(isize);
 impl_graph_distance!(GraphDistanceF32, GraphDistanceF32(0f32));
 impl_graph_distance!(GraphDistanceF64, GraphDistanceF64(0f64));
 
-#[derive(PartialEq, PartialOrd, Clone)]
+#[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct GraphDistanceF32(pub f32);
-#[derive(PartialEq, PartialOrd, Clone)]
+#[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct GraphDistanceF64(pub f64);
 
 impl Eq for GraphDistanceF32 {}
@@ -75,14 +75,16 @@ impl Add for GraphDistanceF64 {
 }
 
 pub struct Graph<T, D: GraphDistance> {
-    nodes: Vec<Rc<RefCell<GraphNodeInternal<T, D>>>>,
+    nodes: Vec<GraphNode<T, D>>,
 }
 
+#[derive(Debug)]
 struct GraphNodeInternal<T, D: GraphDistance> {
     adjacent_nodes: Vec<GraphEdgeInternal<T, D>>,
     data: T,
 }
 
+#[derive(Debug)]
 pub struct GraphNode<T, D: GraphDistance> {
     internal: Rc<RefCell<GraphNodeInternal<T, D>>>,
 }
@@ -95,6 +97,7 @@ impl<T, D: GraphDistance> Clone for GraphNode<T, D> {
     }
 }
 
+#[derive(Debug)]
 struct GraphEdgeInternal<T, D: GraphDistance> {
     pub from: Weak<RefCell<GraphNodeInternal<T, D>>>,
     pub to: Weak<RefCell<GraphNodeInternal<T, D>>>,
@@ -125,10 +128,17 @@ impl<T, D: GraphDistance> GraphEdgeInternal<T, D> {
     }
 }
 
+#[derive(Debug)]
 pub struct GraphEdge<T, D: GraphDistance> {
     pub from: GraphNode<T, D>,
     pub to: GraphNode<T, D>,
     pub distance: D,
+}
+
+impl<T, D: GraphDistance> PartialEq for GraphEdge<T, D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.from.eq(&other.from) && self.to.eq(&other.to) && self.distance.eq(&other.distance)
+    }
 }
 
 impl<T, D: GraphDistance> Clone for GraphEdge<T, D> {
@@ -147,13 +157,13 @@ impl<T, D: GraphDistance> Graph<T, D> {
         adjacent_matrix: Vec<Vec<Option<D>>>,
     ) -> Result<Graph<T, D>, Box<dyn Error>> {
         let length = values.len();
-        let nodes: Vec<Rc<RefCell<GraphNodeInternal<T, D>>>> = values
+        let nodes: Vec<GraphNode<T, D>> = values
             .into_iter()
-            .map(|x| {
-                Rc::new(RefCell::new(GraphNodeInternal {
+            .map(|x| GraphNode {
+                internal: Rc::new(RefCell::new(GraphNodeInternal {
                     data: x,
                     adjacent_nodes: vec![],
-                }))
+                })),
             })
             .collect();
 
@@ -163,16 +173,14 @@ impl<T, D: GraphDistance> Graph<T, D> {
                 "Adjacent matrix size mismatch",
             )));
         }
-        if adjacent_matrix.iter().enumerate().any(|(i, l)| {
-            if let Some(z) = l[i].clone() {
-                z != D::zero()
-            } else {
-                false
-            }
-        }) {
+        if adjacent_matrix
+            .iter()
+            .enumerate()
+            .any(|(i, l)| l[i].is_some())
+        {
             return Err(Box::new(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Adjacent matrix should have zeroes on its diagonal",
+                "Adjacent matrix should have None on its diagonal",
             )));
         }
 
@@ -182,9 +190,10 @@ impl<T, D: GraphDistance> Graph<T, D> {
                     continue;
                 }
                 if let Some(distance) = adjacent_matrix[i][j].clone() {
-                    let from = Rc::downgrade(&Rc::clone(&nodes[i]));
-                    let to = Rc::downgrade(&Rc::clone(&nodes[i]));
+                    let from = Rc::downgrade(&Rc::clone(&nodes[i].internal));
+                    let to = Rc::downgrade(&Rc::clone(&nodes[i].internal));
                     nodes[i]
+                        .internal
                         .borrow_mut()
                         .adjacent_nodes
                         .push(GraphEdgeInternal { from, to, distance });
@@ -197,6 +206,14 @@ impl<T, D: GraphDistance> Graph<T, D> {
 
     pub fn length(&self) -> usize {
         self.nodes.len()
+    }
+}
+
+impl<T, D: GraphDistance> Index<usize> for Graph<T, D> {
+    type Output = GraphNode<T, D>;
+
+    fn index(&self, index: usize) -> &GraphNode<T, D> {
+        return &self.nodes[index];
     }
 }
 
