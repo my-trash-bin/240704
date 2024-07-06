@@ -94,15 +94,15 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
     }
 
     fn heapify(&mut self, index: usize) {
-        let parent_index = parent_index(index);
-        if index != 0
-            && self.nodes[parent_index].borrow().priority > self.nodes[index].borrow().priority
-        {
-            (self.nodes[parent_index], self.nodes[index]) =
-                (self.nodes[index].clone(), self.nodes[parent_index].clone());
-            self.nodes[index].borrow_mut().index = index;
-            self.nodes[parent_index].borrow_mut().index = parent_index;
-            self.heapify(parent_index);
+        if index != 0 {
+            let parent_index = parent_index(index);
+            if self.nodes[parent_index].borrow().priority > self.nodes[index].borrow().priority {
+                (self.nodes[parent_index], self.nodes[index]) =
+                    (self.nodes[index].clone(), self.nodes[parent_index].clone());
+                self.nodes[index].borrow_mut().index = index;
+                self.nodes[parent_index].borrow_mut().index = parent_index;
+                self.heapify(parent_index);
+            }
         }
         let left_child_index = left_child_index(index);
         if self.nodes.len() > left_child_index {
@@ -129,5 +129,48 @@ impl<T: Eq + Hash + Clone, P: Ord + Clone> PriorityQueue<T, P> {
                 self.heapify(left_child_index + 1);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn to_vec<T: Eq + Hash + Clone, P: Ord + Clone>(pq: &PriorityQueue<T, P>) -> Vec<T> {
+        let mut result = Vec::new();
+        let mut pq = pq.clone();
+
+        while let Some((data, _)) = pq.pop_by_priority() {
+            result.push(data);
+        }
+
+        result
+    }
+
+    #[test]
+    fn should_work() {
+        let mut pq = PriorityQueue::<i32, usize>::new();
+        assert_eq!(to_vec(&pq), vec![]);
+
+        pq.push(42, 42);
+        assert_eq!(to_vec(&pq), vec![42]);
+
+        pq.push(1, 1);
+        assert_eq!(to_vec(&pq), vec![1, 42]);
+
+        pq.push(2, 2);
+        assert_eq!(to_vec(&pq), vec![1, 2, 42]);
+
+        pq.push(100, 100);
+        assert_eq!(to_vec(&pq), vec![1, 2, 42, 100]);
+
+        pq.push(42, 0);
+        assert_eq!(to_vec(&pq), vec![42, 1, 2, 100]);
+
+        _ = pq.pop_by_priority();
+        assert_eq!(to_vec(&pq), vec![1, 2, 100]);
+
+        pq.push(42, 42);
+        assert_eq!(to_vec(&pq), vec![1, 2, 42, 100]);
     }
 }
