@@ -22,7 +22,7 @@ fn find_node(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args = env::args().collect::<Vec<_>>();
+    // let args = env::args().collect::<Vec<_>>();
 
     let data: String = std::fs::read_to_string("data.json")?;
     // let data: String = std::fs::read_to_string(args[1])?;
@@ -31,7 +31,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = find_node(&data.graph, &"에버라인선_015".to_string()).unwrap();
     let end = find_node(&data.graph, &"5호선_020".to_string()).unwrap();
 
-    println!("{:?}", dijkstra(start, end));
+    match dijkstra(start, end) {
+        None => println!("No way"),
+        Some(vec) => {
+            for edge in vec.into_iter() {
+                println!(
+                    "{} to {} ({} km)",
+                    edge.from.value().name(),
+                    edge.to.value().name(),
+                    *edge.distance
+                )
+            }
+        }
+    }
 
     Ok(())
 }
