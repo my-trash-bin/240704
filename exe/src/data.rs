@@ -41,6 +41,14 @@ pub struct Station {
     internal: Rc<RefCell<StationInternal>>,
 }
 
+impl PartialEq for Station {
+    fn eq(&self, other: &Self) -> bool {
+        self.internal.as_ptr() == other.internal.as_ptr()
+    }
+}
+
+impl Eq for Station {}
+
 impl Station {
     pub fn name(&self) -> String {
         self.internal.borrow().name.clone()
@@ -185,10 +193,11 @@ pub fn parse_data(data: &[u8]) -> Result<Data, Box<dyn Error>> {
     }
 
     // fill adjacent matrix
-    let values = station_map
+    let mut values = station_map
         .iter()
         .map(|(_, station)| station.clone())
         .collect::<Vec<_>>();
+    remove_duplicates(&mut values);
     let index_map = values
         .iter()
         .enumerate()
@@ -303,4 +312,19 @@ pub fn parse_data(data: &[u8]) -> Result<Data, Box<dyn Error>> {
         stations: station_map,
         graph,
     })
+}
+
+fn remove_duplicates<T: Eq>(vec: &mut Vec<T>) {
+    let mut i = 0;
+    while i < vec.len() {
+        let mut j = i + 1;
+        while j < vec.len() {
+            if vec[i] == vec[j] {
+                vec.remove(j);
+            } else {
+                j += 1;
+            }
+        }
+        i += 1;
+    }
 }
