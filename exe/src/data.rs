@@ -24,7 +24,7 @@ pub struct StationRaw {
 pub struct StationLine {
     next_station: Option<Weak<RefCell<StationInternal>>>,
     previous_station: Option<Weak<RefCell<StationInternal>>>,
-    line: Line,
+    line: Weak<RefCell<LineInternal>>,
 }
 
 #[derive(Debug)]
@@ -175,7 +175,7 @@ pub fn parse_data(data: &[u8]) -> Result<Data, Box<dyn Error>> {
         let station_line = StationLine {
             next_station,
             previous_station,
-            line,
+            line: Rc::downgrade(&line.internal),
         };
         station
             .internal
