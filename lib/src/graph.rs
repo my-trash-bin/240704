@@ -42,6 +42,14 @@ pub struct GraphDistanceF32(f32);
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct GraphDistanceF64(f64);
 
+impl Deref for GraphDistanceF32 {
+    type Target = f32;
+
+    fn deref(&self) -> &f32 {
+        &self.0
+    }
+}
+
 impl Eq for GraphDistanceF32 {}
 
 impl Ord for GraphDistanceF32 {
@@ -65,6 +73,14 @@ impl GraphDistanceF32 {
             panic!("GraphDistanceF32 cannot be NaN")
         }
         GraphDistanceF32(f)
+    }
+}
+
+impl Deref for GraphDistanceF64 {
+    type Target = f64;
+
+    fn deref(&self) -> &f64 {
+        &self.0
     }
 }
 

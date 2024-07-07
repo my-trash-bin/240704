@@ -228,6 +228,10 @@ pub fn parse_data(data: &[u8]) -> Result<Data, Box<dyn Error>> {
                             .clone(),
                     )
                 };
+                if from_index == current_index {
+                    // loop
+                    break;
+                }
                 adjacent_matrix[from_index][current_index] =
                     Some(GraphDistanceF32::new(next_station_distance_sum));
 
@@ -260,8 +264,17 @@ pub fn parse_data(data: &[u8]) -> Result<Data, Box<dyn Error>> {
                             .clone(),
                     )
                 };
+                if from_index == current_index {
+                    // loop
+                    break;
+                }
                 adjacent_matrix[from_index][current_index] =
-                    Some(GraphDistanceF32::new(next_station_distance_sum));
+                    match adjacent_matrix[from_index][current_index].clone() {
+                        Some(previous) => {
+                            Some(previous.min(GraphDistanceF32::new(next_station_distance_sum)))
+                        }
+                        None => Some(GraphDistanceF32::new(next_station_distance_sum)),
+                    };
 
                 previous = current.clone();
                 next_station = next;
