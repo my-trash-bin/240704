@@ -20,12 +20,14 @@ pub struct StationRaw {
     longitude: f32,                      /* 경도 */
 }
 
+#[derive(Debug)]
 pub struct StationLine {
     next_station: Option<Weak<RefCell<StationInternal>>>,
     previous_station: Option<Weak<RefCell<StationInternal>>>,
     line: Line,
 }
 
+#[derive(Debug)]
 struct StationInternal {
     ids: Vec<String>,
     name: String,
@@ -34,17 +36,28 @@ struct StationInternal {
     longitude: f32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Station {
     internal: Rc<RefCell<StationInternal>>,
 }
 
+impl Station {
+    pub fn name(&self) -> String {
+        self.internal.borrow().name.clone()
+    }
+
+    pub fn has_id(&self, id: &String) -> bool {
+        self.internal.borrow().ids.contains(id)
+    }
+}
+
+#[derive(Debug)]
 struct LineInternal {
     name: String,
     stations: Vec<Station>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Line {
     internal: Rc<RefCell<LineInternal>>,
 }

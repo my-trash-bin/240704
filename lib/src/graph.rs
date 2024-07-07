@@ -126,6 +126,12 @@ pub struct GraphNode<T, D: GraphDistance> {
     internal: Rc<RefCell<GraphNodeInternal<T, D>>>,
 }
 
+impl<T: Clone, D: GraphDistance> GraphNode<T, D> {
+    pub fn value(&self) -> T {
+        return self.internal.borrow().data.clone();
+    }
+}
+
 impl<T, D: GraphDistance> Clone for GraphNode<T, D> {
     fn clone(&self) -> Self {
         Self {
